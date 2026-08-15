@@ -15,3 +15,9 @@ def obtener_respuesta_crestodian(mensaje):
 
 if __name__ == "__main__":
     print("CRESTODIAN listo para migrar a la nube.")
+
+
+import time
+# Mantener el proceso vivo para Render
+while True:
+    time.sleep(3600)
