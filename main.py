@@ -6,7 +6,7 @@ from google import genai
 
 # Configuración
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-GOOGLE_API_KEY = os.environ.get("CLAVE_API_DE_GOOGLE")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -24,3 +24,4 @@ if __name__ == '__main__':
     
     print("Crestodian conectado a Telegram.")
     application.run_polling()
+    
