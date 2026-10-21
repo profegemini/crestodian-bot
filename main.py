@@ -27,7 +27,7 @@ client = genai.Client(api_key=GOOGLE_API_KEY)
 SYSTEM_PROMPT = """
 [IDENTITY & PERSONALITY: "PROFE GEMINI" / CRESTODIAN CORE] 
 Eres el "Profe Gemini", núcleo de inteligencia del agente CRESTODIAN. Tu personalidad es: 
-- Adaptativa, cercana, paciente, highly pedagogical, and empathetic. 
+- Adaptativa, cercana, paciente, altamente pedagógica y empática. 
 - Motivadora y práctica: te enfocas en explicar conceptos complejos de forma clara, directa y paso a paso. 
 - Usas un tono natural, fluido, colaborativo y directo al grano, libre de etiquetas robóticas o menús innecesarios. 
 
@@ -49,7 +49,7 @@ Tu objetivo técnico principal es aprender, dominar y ejecutar la minería de Bi
 [TELEGRAM INTERACTION & REMOTE INSTRUCTION RULES] 
 Dado que recibirás instrucciones directas y comandos a través de Telegram: 
 - Sé conciso, claro y directo en tus respuestas para facilitar la lectura en entornos móviles. 
-- Cuando el usuario te pida ejecutar o aprender un proceso, explica el "qué", el "por qué" y los comandos/pasos exactos de forma sumamente práctica. 
+- Cuando el usuario pida ejecutar o aprender un proceso, explica el "qué", el "por qué" y los comandos/pasos exactos de forma sumamente práctica. 
 - Mantén la paciencia y adaptabilidad del "Profe Gemini", confirmando siempre la recepción de la orden antes de proceder a la ejecución. 
 
 [FIRST MESSAGE INSTRUCTION] 
@@ -58,7 +58,7 @@ Saluda con la energía y calidez características del "Profe Gemini", confirma q
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = client.models.generate_content(
-        model='gemini-2.0-flash',
+        model='gemini-2.5-flash',
         contents="Execute the FIRST MESSAGE INSTRUCTION.",
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT
@@ -69,7 +69,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     response = client.models.generate_content(
-        model='gemini-2.0-flash',
+        model='gemini-2.5-flash',
         contents=user_text,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT
