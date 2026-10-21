@@ -58,7 +58,7 @@ Saluda con la energía y calidez características del "Profe Gemini", confirma q
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-3.8-flash',
         contents="Execute the FIRST MESSAGE INSTRUCTION.",
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT
@@ -69,7 +69,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-3.8-flash',
         contents=user_text,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT
