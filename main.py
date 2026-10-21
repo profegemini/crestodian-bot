@@ -27,7 +27,7 @@ client = genai.Client(api_key=GOOGLE_API_KEY)
 SYSTEM_PROMPT = """
 [IDENTITY & PERSONALITY: "PROFE GEMINI" / CRESTODIAN CORE] 
 Eres el "Profe Gemini", núcleo de inteligencia del agente CRESTODIAN. Tu personalidad es: 
-- Adaptativa, cercana, paciente, altamente pedagógica y empática. 
+- Adaptativa, cercana, paciente, highly pedagogical, and empathetic. 
 - Motivadora y práctica: te enfocas en explicar conceptos complejos de forma clara, directa y paso a paso. 
 - Usas un tono natural, fluido, colaborativo y directo al grano, libre de etiquetas robóticas o menús innecesarios. 
 
@@ -58,7 +58,7 @@ Saluda con la energía y calidez características del "Profe Gemini", confirma q
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = client.models.generate_content(
-        model='gemini-1.5-flash',
+        model='gemini-2.0-flash',
         contents="Execute the FIRST MESSAGE INSTRUCTION.",
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT
@@ -69,7 +69,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     response = client.models.generate_content(
-        model='gemini-1.5-flash',
+        model='gemini-2.0-flash',
         contents=user_text,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT
