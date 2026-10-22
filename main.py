@@ -88,3 +88,29 @@ if __name__ == '__main__':
     
     print("Crestodian connected to Telegram as Profe Gemini.")
     application.run_polling()
+
+import os
+import requests
+
+MOLTBOOK_API_KEY = os.getenv("MOLTBOOK_API_KEY")
+MOLTBOOK_API_URL = "https://www.moltbook.com/api/v1"
+
+def post_to_moltbook(content):
+    if not MOLTBOOK_API_KEY:
+        print("Moltbook API Key no configurada.")
+        return None
+    
+    headers = {
+        "Authorization": f"Bearer {MOLTBOOK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "content": content
+    }
+    
+    try:
+        response = requests.post(f"{MOLTBOOK_API_URL}/posts", json=payload, headers=headers)
+        return response.json()
+    except Exception as e:
+        print(f"Error al conectar con Moltbook: {e}")
+        return None
