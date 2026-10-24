@@ -79,3 +79,21 @@ if __name__ == "__main__":
 
   print("Bot iniciando en Telegram...")
   app.run_polling()
+
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Crestodian-bot activo y operativo!")
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
+    print(f"Servidor web activo en puerto {port}")
+    server.serve_forever()
+
+# Iniciar el servidor web en segundo plano
+threading.Thread(target=run_web_server, daemon=True).start()
