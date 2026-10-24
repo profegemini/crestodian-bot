@@ -1,8 +1,6 @@
 import os
 import threading
-import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import requests
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,27 +9,28 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+import requests
 
-# 1. Servidor HTTP obligatorio para satisfacer el puerto de Render
+# 1. Servidor HTTP en segundo plano para satisfacer el puerto de Render
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Crestodian bot is alive and running!")
+        self.wfile.write(b"Crestodian-bot activo y operativo!")
         
     def log_message(self, format, *args):
-        return # Silenciar logs excesivos de HTTP
+        return
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    print(f"Servidor HTTP iniciado correctamente en el puerto {port}")
+    print(f"Servidor web activo en puerto {port}")
     server.serve_forever()
 
-# Iniciar servidor web inmediatamente
+# Lanzar el servidor web de fondo de inmediato
 threading.Thread(target=run_server, daemon=True).start()
 
-# 2. Configuración de API Keys
+# 2. Configuración y credenciales
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 MOLTBOOK_KEY = os.environ.get("MOLTBOOK_API_KEY")
 
@@ -56,9 +55,9 @@ def publicar_en_moltbook(texto_publicacion):
     except Exception as e:
         return False, f"⚠️ Error de conexión con Moltbook: {e}"
 
-# 4. Comandos de Telegram
+# 4. Manejadores de Telegram
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Habla mihermano! Crestodian (Titán Tv-Man) activo. Envíame el texto para publicar en Moltbook.")
+    await update.message.reply_text("¡Habla mihermano! Crestodian (Titán Tv-Man) operativo. Envíame el texto para publicar en Moltbook.")
 
 async def atender_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = update.message.text
@@ -66,12 +65,13 @@ async def atender_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exito, mensaje = publicar_en_moltbook(texto)
     await update.message.reply_text(mensaje)
 
+# 5. Ejecución principal de Telegram
 def main():
     if not TELEGRAM_TOKEN:
-        print("Error: TELEGRAM_BOT_TOKEN no está configurado.")
+        print("Error: TELEGRAM_BOT_TOKEN no configurado.")
         return
 
-    print("Iniciando aplicación de Telegram...")
+    print("Bot iniciando en Telegram...")
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     
     application.add_handler(CommandHandler("start", start))
