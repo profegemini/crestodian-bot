@@ -69,7 +69,7 @@ def webhook():
         # Verificar si el mensaje contiene texto
         if "message" in data and "text" in data["message"]:
             chat_id = data["message"]["chat"]["id"]
-             texto_usuario = data["message"]["text"]
+            texto_usuario = data["message"]["text"]
             
             # Si es el comando /start
             if texto_usuario.startswith("/start"):
