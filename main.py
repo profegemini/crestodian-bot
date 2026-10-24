@@ -1,25 +1,17 @@
 import os
-import asyncio
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
-from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
-)
+from flask import Flask, request, jsonify
+from telegram import Bot, Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# ---------------------------------------------------------
-# 1. VARIABLES DE ENTORNO
-# ---------------------------------------------------------
+# 1. Variables de entorno
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 MOLTBOOK_KEY = os.environ.get("MOLTBOOK_API_KEY")
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")  # Render genera esta variable automáticamente
 
-# ---------------------------------------------------------
-# 2. LÓGICA DE MOLTBOOK
-# ---------------------------------------------------------
+app = Flask(__name__)
+
+# 2. Función de publicación en Moltbook
 def publicar_en_moltbook(texto_publicacion):
     url = "https://www.moltbook.com/api/v1/posts"
     headers = {
@@ -40,66 +32,56 @@ def publicar_en_moltbook(texto_publicacion):
     except Exception as e:
         return False, f"⚠️ Error de conexión con Moltbook: {e}"
 
-# ---------------------------------------------------------
-# 3. MANEJADORES DE TELEGRAM
-# ---------------------------------------------------------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Habla mihermano! Crestodian (Titán Tv-Man) activo y operativo. Envíame el texto para publicar en Moltbook.")
+# 3. Lógica del Bot de Telegram
+tg_app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-async def atender_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("¡Habla mihermano! Crestodian (Titán Tv-Man) operativo vía Webhook. Envíame lo que quieras publicar en Moltbook.")
+
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = update.message.text
-    await update.message.reply_text("⏳ Procesando envío a Moltbook...")
+    await update.message.reply_text("⏳ Procesando y enviando a Moltbook...")
     exito, mensaje = publicar_en_moltbook(texto)
     await update.message.reply_text(mensaje)
 
-# ---------------------------------------------------------
-# 4. SERVIDOR HTTP ASÍNCRONO (Manejo de puerto para Render)
-# ---------------------------------------------------------
-async def handle_http_request(reader, writer):
-    data = await reader.read(100)
-    response = (
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/plain\r\n"
-        "Content-Length: 35\r\n"
-        "\r\n"
-        "Crestodian-bot activo y operativo!"
-    )
-    writer.write(response.encode('utf-8'))
-    await writer.drain()
-    writer.close()
-    await writer.wait_closed()
+tg_app.add_handler(CommandHandler("start", start_handler))
+tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
-async def start_web_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = await asyncio.start_server(handle_http_request, '0.0.0.0', port)
-    print(f"Servidor HTTP nativo escuchando en el puerto {port}")
-    async with server:
-        await server.serve_forever()
+# 4. Endpoints del Servidor Web (Flask)
+@app.route("/", methods=["GET"])
+def health_check():
+    return "Crestodian-bot Webhook activo y operativo!", 200
 
-# ---------------------------------------------------------
-# 5. PUNTO DE ENTRADA PRINCIPAL ASÍNCRONO
-# ---------------------------------------------------------
-async def main():
-    if not TELEGRAM_TOKEN:
-        print("Error: TELEGRAM_BOT_TOKEN no configurado.")
-        return
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    """Recibe los mensajes que envía Telegram"""
+    if request.method == "POST":
+        asyncio = __import__("asyncio")
+        update = Update.de_json(request.get_json(force=True), tg_app.bot)
+        
+        # Procesar la actualización dentro del loop asíncrono
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(tg_app.process_update(update))
+        loop.close()
+        
+        return "OK", 200
 
-    # Iniciar el servidor web de Render como tarea de fondo
-    asyncio.create_task(start_web_server())
-
-    # Configurar la aplicación de Telegram
-    print("Iniciando bot de Telegram...")
-    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, atender_mensaje))
-
-    # Inicializar y ejecutar Telegram de forma asíncrona dentro de asyncio
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling()
-
-    # Mantener el bucle en ejecución indefinidamente
-    await asyncio.Event().wait()
+def set_telegram_webhook():
+    """Registra la URL de Render en los servidores de Telegram"""
+    if RENDER_URL and TELEGRAM_TOKEN:
+        webhook_url = f"{RENDER_URL}/webhook"
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={webhook_url}"
+        try:
+            r = requests.get(url, timeout=10)
+            print("Configuración de Webhook en Telegram:", r.json())
+        except Exception as e:
+            print("Error configurando Webhook:", e)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Registrar la ruta del Webhook al iniciar
+    set_telegram_webhook()
+    
+    # Iniciar servidor web Flask en el puerto que exige Render
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
