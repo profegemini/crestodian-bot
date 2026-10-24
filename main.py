@@ -16,11 +16,11 @@ app = Flask(__name__)
 tg_app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 is_initialized = False
 
-# 3. Lógica de Moltbook
+# 3. Lógica de Moltbook corregida y alineada con la API
 def publicar_en_moltbook(texto_publicacion):
     url = "https://www.moltbook.com/api/v1/posts"
     headers = {
-        "Authorization": f"Bearer {MOLTBOOK_KEY}",
+        "Authorization": f"Bearer {MOLTBOOK_KEY.strip()}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -29,17 +29,17 @@ def publicar_en_moltbook(texto_publicacion):
         "content": texto_publicacion
     }
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
         if response.status_code in [200, 201]:
             return True, "¡Publicación realizada con éxito en Moltbook!"
         else:
-            return False, f"⚠️ La API de Moltbook rechazó la petición ({response.status_code}): {response.text}"
+            return False, f"⚠️ Moltbook rechazó la petición ({response.status_code}): {response.text}"
     except Exception as e:
         return False, f"⚠️ Error de conexión con Moltbook: {e}"
 
 # 4. Manejadores de Telegram
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Habla mihermano! Crestodian (Titán Tv-Man) operativo vía Webhook. Envíame lo que quieras publicar en Moltbook.")
+    await update.message.reply_text("¡Habla mihermano! Crestodian operativo. Envíame el texto para publicar en Moltbook.")
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = update.message.text
@@ -50,7 +50,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 tg_app.add_handler(CommandHandler("start", start_handler))
 tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
-# 5. Endpoints de Flask
+# 5. Endpoints de Flask y Webhook
 @app.route("/", methods=["GET"])
 def health_check():
     return "Crestodian-bot Webhook activo y operativo!", 200
@@ -62,7 +62,6 @@ def webhook():
         json_data = request.get_json(force=True)
         update = Update.de_json(json_data, tg_app.bot)
 
-        # Inicialización y procesamiento seguros en el mismo loop
         async def process_update_safe():
             global is_initialized
             if not is_initialized:
@@ -71,7 +70,6 @@ def webhook():
                 if RENDER_URL and TELEGRAM_TOKEN:
                     webhook_url = f"{RENDER_URL}/webhook"
                     await tg_app.bot.set_webhook(webhook_url)
-                    print(f"Webhook configurado en: {webhook_url}")
             
             await tg_app.process_update(update)
 
@@ -82,7 +80,7 @@ def webhook():
 
         return "OK", 200
     except Exception as e:
-        print(f"Error crítico en webhook: {e}")
+        print(f"Error en webhook: {e}")
         return "OK", 200
 
 if __name__ == "__main__":
