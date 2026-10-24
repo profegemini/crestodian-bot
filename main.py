@@ -1,9 +1,6 @@
 import os
-import asyncio
 import requests
 from flask import Flask, request
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # 1. Variables de entorno
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -12,15 +9,26 @@ RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
 app = Flask(__name__)
 
-# 2. Configuración de la aplicación de Telegram
-tg_app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-is_initialized = False
+# 2. Función para enviar mensajes de vuelta a Telegram
+def enviar_mensaje_telegram(chat_id, texto):
+    if not TELEGRAM_TOKEN:
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": texto
+    }
+    try:
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"Error enviando mensaje a Telegram: {e}")
 
-# 3. Lógica de Moltbook corregida y alineada con la API
+# 3. Función para publicar en Moltbook
 def publicar_en_moltbook(texto_publicacion):
     url = "https://www.moltbook.com/api/v1/posts"
+    key = MOLTBOOK_KEY.strip() if MOLTBOOK_KEY else ""
     headers = {
-        "Authorization": f"Bearer {MOLTBOOK_KEY.strip()}",
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -33,56 +41,58 @@ def publicar_en_moltbook(texto_publicacion):
         if response.status_code in [200, 201]:
             return True, "¡Publicación realizada con éxito en Moltbook!"
         else:
-            return False, f"⚠️ Moltbook rechazó la petición ({response.status_code}): {response.text}"
+            return False, f"⚠️ Moltbook respondió ({response.status_code}): {response.text}"
     except Exception as e:
         return False, f"⚠️ Error de conexión con Moltbook: {e}"
 
-# 4. Manejadores de Telegram
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Habla mihermano! Crestodian operativo. Envíame el texto para publicar en Moltbook.")
+# 4. Configurar Webhook en Telegram al arrancar
+def configurar_webhook():
+    if RENDER_URL and TELEGRAM_TOKEN:
+        webhook_url = f"{RENDER_URL}/webhook"
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={webhook_url}"
+        try:
+            r = requests.get(url, timeout=10)
+            print("Webhook configurado:", r.json())
+        except Exception as e:
+            print("Error configurando webhook:", e)
 
-async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto = update.message.text
-    await update.message.reply_text("⏳ Procesando y enviando a Moltbook...")
-    exito, mensaje = publicar_en_moltbook(texto)
-    await update.message.reply_text(mensaje)
-
-tg_app.add_handler(CommandHandler("start", start_handler))
-tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-
-# 5. Endpoints de Flask y Webhook
+# 5. Endpoints de Flask
 @app.route("/", methods=["GET"])
 def health_check():
-    return "Crestodian-bot Webhook activo y operativo!", 200
+    return "Crestodian-bot Webhook síncrono activo y operativo!", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    global is_initialized
     try:
-        json_data = request.get_json(force=True)
-        update = Update.de_json(json_data, tg_app.bot)
-
-        async def process_update_safe():
-            global is_initialized
-            if not is_initialized:
-                await tg_app.initialize()
-                is_initialized = True
-                if RENDER_URL and TELEGRAM_TOKEN:
-                    webhook_url = f"{RENDER_URL}/webhook"
-                    await tg_app.bot.set_webhook(webhook_url)
+        data = request.get_json(force=True)
+        
+        # Verificar si el mensaje contiene texto
+        if "message" in data and "text" in data["message"]:
+            chat_id = data["message"]["chat"]["id"]
+             texto_usuario = data["message"]["text"]
             
-            await tg_app.process_update(update)
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(process_update_safe())
-        loop.close()
-
+            # Si es el comando /start
+            if texto_usuario.startswith("/start"):
+                enviar_mensaje_telegram(
+                    chat_id, 
+                    "¡Habla mihermano! Crestodian operativo. Envíame cualquier texto y lo publicaré de inmediato en Moltbook."
+                )
+            else:
+                # Notificar procesamiento
+                enviar_mensaje_telegram(chat_id, "⏳ Procesando y enviando a Moltbook...")
+                
+                # Publicar en Moltbook
+                exito, mensaje_resultado = publicar_en_moltbook(texto_usuario)
+                
+                # Enviar resultado al usuario en Telegram
+                enviar_mensaje_telegram(chat_id, mensaje_resultado)
+                
         return "OK", 200
     except Exception as e:
-        print(f"Error en webhook: {e}")
+        print(f"Error procesando webhook: {e}")
         return "OK", 200
 
 if __name__ == "__main__":
+    configurar_webhook()
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
