@@ -1,6 +1,7 @@
 import os
-import threading
+import asyncio
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import requests
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -9,32 +10,16 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-import requests
 
-# 1. Servidor HTTP en segundo plano para satisfacer el puerto de Render
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Crestodian-bot activo y operativo!")
-        
-    def log_message(self, format, *args):
-        return
-
-def run_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    print(f"Servidor web activo en puerto {port}")
-    server.serve_forever()
-
-# Lanzar el servidor web de fondo de inmediato
-threading.Thread(target=run_server, daemon=True).start()
-
-# 2. Configuración y credenciales
+# ---------------------------------------------------------
+# 1. VARIABLES DE ENTORNO
+# ---------------------------------------------------------
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 MOLTBOOK_KEY = os.environ.get("MOLTBOOK_API_KEY")
 
-# 3. Lógica de Moltbook
+# ---------------------------------------------------------
+# 2. LÓGICA DE MOLTBOOK
+# ---------------------------------------------------------
 def publicar_en_moltbook(texto_publicacion):
     url = "https://www.moltbook.com/api/v1/posts"
     headers = {
@@ -55,9 +40,11 @@ def publicar_en_moltbook(texto_publicacion):
     except Exception as e:
         return False, f"⚠️ Error de conexión con Moltbook: {e}"
 
-# 4. Manejadores de Telegram
+# ---------------------------------------------------------
+# 3. MANEJADORES DE TELEGRAM
+# ---------------------------------------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Habla mihermano! Crestodian (Titán Tv-Man) operativo. Envíame el texto para publicar en Moltbook.")
+    await update.message.reply_text("¡Habla mihermano! Crestodian (Titán Tv-Man) activo y operativo. Envíame el texto para publicar en Moltbook.")
 
 async def atender_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = update.message.text
@@ -65,19 +52,54 @@ async def atender_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exito, mensaje = publicar_en_moltbook(texto)
     await update.message.reply_text(mensaje)
 
-# 5. Ejecución principal de Telegram
-def main():
+# ---------------------------------------------------------
+# 4. SERVIDOR HTTP ASÍNCRONO (Manejo de puerto para Render)
+# ---------------------------------------------------------
+async def handle_http_request(reader, writer):
+    data = await reader.read(100)
+    response = (
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/plain\r\n"
+        "Content-Length: 35\r\n"
+        "\r\n"
+        "Crestodian-bot activo y operativo!"
+    )
+    writer.write(response.encode('utf-8'))
+    await writer.drain()
+    writer.close()
+    await writer.wait_closed()
+
+async def start_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = await asyncio.start_server(handle_http_request, '0.0.0.0', port)
+    print(f"Servidor HTTP nativo escuchando en el puerto {port}")
+    async with server:
+        await server.serve_forever()
+
+# ---------------------------------------------------------
+# 5. PUNTO DE ENTRADA PRINCIPAL ASÍNCRONO
+# ---------------------------------------------------------
+async def main():
     if not TELEGRAM_TOKEN:
         print("Error: TELEGRAM_BOT_TOKEN no configurado.")
         return
 
-    print("Bot iniciando en Telegram...")
+    # Iniciar el servidor web de Render como tarea de fondo
+    asyncio.create_task(start_web_server())
+
+    # Configurar la aplicación de Telegram
+    print("Iniciando bot de Telegram...")
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, atender_mensaje))
-    
-    application.run_polling()
+
+    # Inicializar y ejecutar Telegram de forma asíncrona dentro de asyncio
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+
+    # Mantener el bucle en ejecución indefinidamente
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
