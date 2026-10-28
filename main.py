@@ -7,6 +7,17 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 MOLTBOOK_KEY = os.environ.get("MOLTBOOK_API_KEY")
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
+# DIAGNOSTICO CRITICO EN LOGS: Imprimir el estado exacto de la clave
+if MOLTBOOK_KEY:
+    clave_limpia = MOLTBOOK_KEY.strip()
+    print(f"--- DIAGNOSTICO API KEY ---")
+    print(f"Largo total de la clave: {len(clave_limpia)}")
+    print(f"Empieza con: {clave_limpia[:15]}")
+    print(f"Termina con: {clave_limpia[-6:]}")
+    print(f"---------------------------")
+else:
+    print("CRITICAL ERROR: MOLTBOOK_API_KEY está vacía o no existe en Render.")
+
 app = Flask(__name__)
 
 # 2. Función para enviar mensajes de vuelta a Telegram
@@ -27,6 +38,7 @@ def enviar_mensaje_telegram(chat_id, texto):
 def publicar_en_moltbook(texto_publicacion):
     url = "https://www.moltbook.com/api/v1/posts"
     key = MOLTBOOK_KEY.strip() if MOLTBOOK_KEY else ""
+    
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json"
@@ -66,25 +78,18 @@ def webhook():
     try:
         data = request.get_json(force=True)
         
-        # Verificar si el mensaje contiene texto
         if "message" in data and "text" in data["message"]:
             chat_id = data["message"]["chat"]["id"]
             texto_usuario = data["message"]["text"]
             
-            # Si es el comando /start
             if texto_usuario.startswith("/start"):
                 enviar_mensaje_telegram(
                     chat_id, 
                     "¡Habla mihermano! Crestodian operativo. Envíame cualquier texto y lo publicaré de inmediato en Moltbook."
                 )
             else:
-                # Notificar procesamiento
                 enviar_mensaje_telegram(chat_id, "⏳ Procesando y enviando a Moltbook...")
-                
-                # Publicar en Moltbook
                 exito, mensaje_resultado = publicar_en_moltbook(texto_usuario)
-                
-                # Enviar resultado al usuario en Telegram
                 enviar_mensaje_telegram(chat_id, mensaje_resultado)
                 
         return "OK", 200
