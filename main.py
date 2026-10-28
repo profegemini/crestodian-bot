@@ -2,25 +2,17 @@ import os
 import requests
 from flask import Flask, request
 
-# 1. Variables de entorno
+# 1. Variables de entorno (limpiando espacios o caracteres accidentales automáticamente)
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 MOLTBOOK_KEY = os.environ.get("MOLTBOOK_API_KEY")
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
-# DIAGNOSTICO CRITICO EN LOGS: Imprimir el estado exacto de la clave
 if MOLTBOOK_KEY:
-    clave_limpia = MOLTBOOK_KEY.strip()
-    print(f"--- DIAGNOSTICO API KEY ---")
-    print(f"Largo total de la clave: {len(clave_limpia)}")
-    print(f"Empieza con: {clave_limpia[:15]}")
-    print(f"Termina con: {clave_limpia[-6:]}")
-    print(f"---------------------------")
-else:
-    print("CRITICAL ERROR: MOLTBOOK_API_KEY está vacía o no existe en Render.")
+    MOLTBOOK_KEY = MOLTBOOK_KEY.strip()
 
 app = Flask(__name__)
 
-# 2. Función para enviar mensajes de vuelta a Telegram
+# 2. Función para enviar mensajes a Telegram
 def enviar_mensaje_telegram(chat_id, texto):
     if not TELEGRAM_TOKEN:
         return
@@ -37,7 +29,7 @@ def enviar_mensaje_telegram(chat_id, texto):
 # 3. Función para publicar en Moltbook
 def publicar_en_moltbook(texto_publicacion):
     url = "https://www.moltbook.com/api/v1/posts"
-    key = MOLTBOOK_KEY.strip() if MOLTBOOK_KEY else ""
+    key = MOLTBOOK_KEY if MOLTBOOK_KEY else ""
     
     headers = {
         "Authorization": f"Bearer {key}",
